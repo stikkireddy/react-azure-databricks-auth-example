@@ -1,4 +1,4 @@
-const BASE_URL = "http://localhost:5173"
+const BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL
 
 export const startLogin = async () => {
     const result = await fetch(`${BASE_URL}/authorize-url`, {

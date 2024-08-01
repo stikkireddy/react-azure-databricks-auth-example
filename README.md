@@ -45,9 +45,10 @@ You can modify this on the Fastapi server: REFRESH_TOKEN_WITHIN_N_SECONDS.
 1. Clone the repo
 2. Make sure you have nodejs and npm installed
 3. Make sure you have python 3 installed
-4. Run `make install` to install the dependencies for both the python project and the react app
-5. Run `make run-backend` to start the backend
-6. Run `make run-ui` to start the UI
+4. Populate all the .env files in both the react app and the python backend with the appropriate values. Use the template .env.template to know what to fill out.
+5. Run `make install` to install the dependencies for both the python project and the react app
+6. Run `make run-backend` to start the backend
+7. Run `make run-ui` to start the UI
 
 ## Production
 
