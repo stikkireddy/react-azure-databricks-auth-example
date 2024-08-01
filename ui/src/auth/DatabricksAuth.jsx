@@ -3,6 +3,8 @@ import startLogin, {checkValidSession} from "./auth.js";
 
 const AuthContext = createContext(null);
 
+const SESSION_VALIDATION_INTERVAL = import.meta.env.VITE_SESSION_VALIDATION_INTERVAL
+
 const DatabricksAuthProvider = ({ children }) => {
     const [validSession, setValidSession] = useState(false);
     const intervalRef = useRef(null)
@@ -29,7 +31,7 @@ const DatabricksAuthProvider = ({ children }) => {
         if (intervalRef.current != null) {
             clearInterval(intervalRef.current)
         }
-        intervalRef.current = setInterval(shouldRefreshToken, 10000)
+        intervalRef.current = setInterval(shouldRefreshToken, SESSION_VALIDATION_INTERVAL)
     }, []);
 
     return (

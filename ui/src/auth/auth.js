@@ -7,6 +7,7 @@ export const startLogin = async () => {
             'accept': 'application/json',
             'Content-Type': 'application/json'
         },
+        redirect: 'follow'
     })
         .then(response => {
             if (!response.ok) {

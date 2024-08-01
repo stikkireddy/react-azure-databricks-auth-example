@@ -1,15 +1,18 @@
-import json
+import secrets
+from typing import Optional
 
 import httpx
-import requests
 import uvicorn
 from databricks.sdk import WorkspaceClient
-from fastapi import FastAPI, Response, Cookie, Request
+from databricks.sdk.oauth import OAuthClient, SessionCredentials, Consent
+from fastapi import FastAPI, Request, Depends
+from pydantic import BaseModel
 from starlette import status
+from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import JSONResponse, StreamingResponse, RedirectResponse
 
-from constants import CLIENT_ID, REDIRECT_URI, WORKSPACE_URL, REACT_SERVICE_URL, SCOPES, PORT, HOST, CLIENT_SECRET
-from models import TokenInfo, AuthorizeUrlResponse, AuthorizePayload, OauthChallengeCfg
+from constants import CLIENT_ID, REDIRECT_URI, WORKSPACE_URL, REACT_SERVICE_URL, SCOPES, PORT, HOST, CLIENT_SECRET, \
+    COOKIE_MAX_AGE
 
 app = FastAPI()
 
@@ -25,93 +28,97 @@ app = FastAPI()
 #     allow_headers=["*"],  # Allows all headers
 # )
 
+app.add_middleware(SessionMiddleware,
+                   # this is the key to encrypt the cookie
+                   # use a static one if you dont want app reboot to invalidate all sessions
+                   secret_key=secrets.token_urlsafe(32),
+                   https_only=True,
+                   max_age=COOKIE_MAX_AGE,
+                   same_site="strict")
+
+oauth_client = OAuthClient(host=WORKSPACE_URL,
+                               client_id=CLIENT_ID,
+                               client_secret=CLIENT_SECRET,
+                               redirect_url=REDIRECT_URI,
+                               # All three scopes needed for model serving on Azure
+                               scopes=SCOPES)
+
+
+class AuthorizeUrlResponse(BaseModel):
+    authorize_url: str
+
+    @classmethod
+    def from_authorize_payload(cls, consent: Consent):
+        return cls(authorize_url=consent.auth_url)
 
 @app.get("/authorize-url")
-def authorize(response: Response) -> AuthorizeUrlResponse:
+def authorize(request: Request) -> AuthorizeUrlResponse:
     # this will generate authorization url that will take your browser to another page
     # once you auth to databricks ws it will redirect back to the redirect uri
     # the redirect uri will be your application
     # the redirect will also include a code and state that you can use to verify and get the token
     # this is to ensure that the code is exchanged with the right service with the proper state
-    auth_payload = AuthorizePayload.generate()
-    authorize_cookie = auth_payload.to_oauth_cfg().json()
-    response.set_cookie(key=OauthChallengeCfg.get_cookie_name(), value=authorize_cookie, httponly=True)
-    return AuthorizeUrlResponse.from_authorize_payload(auth_payload)
+    consent = oauth_client.initiate_consent()
+    request.session["consent"] = consent.as_dict()
+    return AuthorizeUrlResponse.from_authorize_payload(consent)
 
 
 @app.get("/token")
 def token(
-        code: str,
-        state: str,
-        # token_request: TokenRequest,
-        oauth_challenge_cfg: str = Cookie(None)
+        request: Request,
+        code: Optional[str] = None,
+        state: Optional[str] = None,
+        error: Optional[str] = None,
+        error_description: Optional[str] = None,
 ):
-    # oauth challenge config cookie
-    oauth_cfg = OauthChallengeCfg.from_cookie(oauth_challenge_cfg)
-    oauth_code_verifier = oauth_cfg.code_verifier
-    oauth_state = oauth_cfg.state
-    if state != oauth_state:
-        invalid_state = JSONResponse(status_code=401, content={"error": "Invalid state"})
-        invalid_state.delete_cookie(OauthChallengeCfg.get_cookie_name())
-        return invalid_state
-    print("Oauth CFG cookie", oauth_cfg)
-    redirect_uri = REDIRECT_URI
-    code_verifier = oauth_code_verifier
-    authorization_code = code
+    from databricks.sdk.oauth import Consent
 
-    url = f"{WORKSPACE_URL}/oidc/v1/token"
+    if error is not None:
+        # something wrong happened with state or invalid oauth config
+        request.session["consent"] = None
+        return JSONResponse(status_code=401, content={"error": error, "error_description": error_description})
 
-    data = {
-        'client_id': CLIENT_ID,
-        'client_secret': CLIENT_SECRET,
-        'grant_type': 'authorization_code',
-        'scope': SCOPES,
-        'redirect_uri': redirect_uri,
-        'code_verifier': code_verifier,
-        'code': authorization_code
-    }
-
-    data = requests.post(url, headers={'Content-Type': 'application/x-www-form-urlencoded'}, data=data)
-    access = data.json()
+    consent = Consent.from_dict(oauth_client, request.session.get("consent"))
     try:
-        token_info = TokenInfo(**access)
-        resp = RedirectResponse(url="/", status_code=status.HTTP_308_PERMANENT_REDIRECT, )
-        resp.set_cookie(key="session", value=token_info.to_encrypted_string(), httponly=True)
-        resp.delete_cookie(OauthChallengeCfg.get_cookie_name())
-        return resp
-        # return access
+        creds = consent.exchange(code, state)
     except Exception as e:
+        request.session["consent"] = None
+        return RedirectResponse(url="/", status_code=status.HTTP_308_PERMANENT_REDIRECT, )
+
+    request.session["consent"] = None
+    access = creds.as_dict()
+    try:
+        request.session["token"] = access
+        return RedirectResponse(url="/", status_code=status.HTTP_308_PERMANENT_REDIRECT, )
+    except Exception:
         pass
-    invalid_token = JSONResponse(status_code=401, content={"error": "Invalid token"})
-    invalid_token.delete_cookie(OauthChallengeCfg.get_cookie_name())
-    return invalid_token
+    request.session["token"] = None
+    return JSONResponse(status_code=401, content={"error": "Invalid token"})
 
 
 # THIS IS TOTALLY OPTIONAL AND NOT REQUIRED IF THE USER DOES NOTHING FOR 1 HR THEN JUST MAKE THEM GO THROUGH LOGIN FLOW AGAIN
 @app.post("/validate-session")
-def refresh(response: Response, session: str = Cookie(None)):
-    if session is None:
+def refresh(request: Request):
+    session_token = request.session.get("token")
+    if session_token is None:
         return JSONResponse(status_code=401, content={"error": "Invalid session"})
-
-    token_info = TokenInfo.from_encrypted_string(session)
-    if token_info.is_token_about_to_expire():
-        print("Token is about to expire, attempting refresh")
-        token_info.attempt_refresh()
-
-    if token_info.access_token is None:
-        response.delete_cookie("session")
+    creds = SessionCredentials.from_dict(oauth_client, session_token)
+    if creds.token().valid is False:
         return JSONResponse(status_code=401, content={"error": "Invalid session"})
+    request.session["token"] = creds.as_dict()
 
-    response.set_cookie(key="session", value=token_info.to_encrypted_string(), httponly=True)
-    return
+def get_workspace_client(request: Request) -> Optional[WorkspaceClient]:
+    session_token = request.session.get("token")
+    if session_token is None:
+        return None
+    creds = SessionCredentials.from_dict(oauth_client, session_token)
+    return WorkspaceClient(token=creds.token().access_token, host=WORKSPACE_URL)
 
 
 @app.get("/test")
-async def test_token(session: str = Cookie(None)):
-    if session is None:
+async def test_token(w: Optional[WorkspaceClient] = Depends(get_workspace_client)):
+    if w is None:
         return JSONResponse(status_code=401, content={"error": "Invalid session"})
-    token_info = TokenInfo.from_encrypted_string(session)
-    w = WorkspaceClient(token=token_info.access_token, host=WORKSPACE_URL)
     return w.current_user.me().as_dict()
 
 

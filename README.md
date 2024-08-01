@@ -23,14 +23,16 @@ There is a very basic DatabricksAuthProvider React context provider that will ha
 
 1. React client code will invoke GET /authorize-url
 2. The backend will prepare the code challenge, state and code verifier and ship the authorization url
-3. The backend will also save this config as a HTTPOnly cookie (oauth_challenge_cfg) (you can optionally add secure flag for the cookies)
+3. The backend will also save this config as a HTTPOnly secure session cookie
 4. The React code will redirect to the authorization url (this is a Databricks url)
 5. The user will authenticate and authorize the app
 6. Databricks will redirect to the redirect_uri with the code and state and this will be the url pointing to backend
 7. The backend will receive the code and state with something like this /token?code=XXX&state=YYY
 8. The backend will then retrieve the code verifier, state from the HTTPOnly cookie and validate the state
 9. If the state is valid, the backend will exchange the code for the token using the client_id, client_secret, code, code_verifier
-10. The backend will save the token, refresh token, etc encrypted in a HTTPOnly cookie (session) and redirect to the React application path.
+10. The backend will save the token, refresh token, etc encrypted in a HTTPOnly secure cookie (session) and redirect to the React application path.
+
+**All cookies in the explanation are managed by the starlette SessionMiddleware. All the cookies are stored as a dictionary, encrypted and httpOnly.**
 
 Make sure you use a proxy/etc to make sure that the backend and frontend are in the same domain to avoid CORS issues and cookie issues.
 Cross origin cookies are only set with SameSite=None; Secure and the browser will block them if the domain is different. Not a good idea 
@@ -38,7 +40,12 @@ if you dont need to do this.
 
 The app additionally has a background setInterval ref to validate the session every N seconds. It makes an api call POST /validate-session which 
 ships the cookies over and then the backend converts the cookie to a decoded jwt and sees if it can refresh the token. You can modify this to be in magnitude of minutes.
+To configure the React client to validate session every so often you can modify this in the React code. VITE_SESSION_VALIDATION_INTERVAL.
+
+To modify the backend on how many seconds before expire to refresh token you can modify the config in the .env file. 
 You can modify this on the Fastapi server: REFRESH_TOKEN_WITHIN_N_SECONDS.
+
+All cookies have expiry of 1 hr other than the oauth_challenge_cfg which is 60 seconds.
 
 ## How to run
 
