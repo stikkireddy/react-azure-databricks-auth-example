@@ -1,7 +1,7 @@
 const BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL
 
 export const getCurrentUser = async () => {
-    const result = await fetch(`${BASE_URL}/test`, {
+    return await fetch(`${BASE_URL}/test`, {
         method: 'GET',
         headers: {
             'accept': 'application/json',
@@ -21,5 +21,4 @@ export const getCurrentUser = async () => {
             console.error('Error:', error);
             return null
         });
-    return result
 }
