@@ -1,4 +1,3 @@
-import secrets
 from typing import Optional
 
 import httpx
@@ -12,10 +11,9 @@ from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import JSONResponse, StreamingResponse, RedirectResponse
 
 from constants import CLIENT_ID, REDIRECT_URI, WORKSPACE_URL, REACT_SERVICE_URL, SCOPES, PORT, HOST, CLIENT_SECRET, \
-    COOKIE_MAX_AGE
+    COOKIE_MAX_AGE, COOKIE_ENCRYPTION_KEY
 
 app = FastAPI()
-
 
 # Add CORS middleware
 # DO NOT NEED CORS, YOU SHOULD TRY TO RUN THE APPS IN THE SAME DOMAIN
@@ -31,17 +29,17 @@ app = FastAPI()
 app.add_middleware(SessionMiddleware,
                    # this is the key to encrypt the cookie
                    # use a static one if you dont want app reboot to invalidate all sessions
-                   secret_key=secrets.token_urlsafe(32),
+                   secret_key=COOKIE_ENCRYPTION_KEY,
                    https_only=True,
                    max_age=COOKIE_MAX_AGE,
                    same_site="strict")
 
 oauth_client = OAuthClient(host=WORKSPACE_URL,
-                               client_id=CLIENT_ID,
-                               client_secret=CLIENT_SECRET,
-                               redirect_url=REDIRECT_URI,
-                               # All three scopes needed for model serving on Azure
-                               scopes=SCOPES)
+                           client_id=CLIENT_ID,
+                           client_secret=CLIENT_SECRET,
+                           redirect_url=REDIRECT_URI,
+                           # All three scopes needed for model serving on Azure
+                           scopes=SCOPES)
 
 
 class AuthorizeUrlResponse(BaseModel):
@@ -50,6 +48,7 @@ class AuthorizeUrlResponse(BaseModel):
     @classmethod
     def from_authorize_payload(cls, consent: Consent):
         return cls(authorize_url=consent.auth_url)
+
 
 @app.get("/authorize-url")
 def authorize(request: Request) -> AuthorizeUrlResponse:
@@ -106,6 +105,7 @@ def refresh(request: Request):
     if creds.token().valid is False:
         return JSONResponse(status_code=401, content={"error": "Invalid session"})
     request.session["token"] = creds.as_dict()
+
 
 def get_workspace_client(request: Request) -> Optional[WorkspaceClient]:
     session_token = request.session.get("token")

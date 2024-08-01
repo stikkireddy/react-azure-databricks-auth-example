@@ -1,6 +1,6 @@
 import os
+import secrets
 
-from cryptography.fernet import Fernet
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -15,10 +15,8 @@ REFRESH_TOKEN_WITHIN_N_SECONDS = int(os.environ.get("REFRESH_TOKEN_WITHIN_N_SECO
 SCOPES = ["all-apis", "offline_access"]
 
 # use this in another file if you need to generate the key
-# def generate_key():
-#     return Fernet.generate_key()
-COOKIE_ENCRYPTION_KEY = os.environ.get("COOKIE_ENCRYPTION_KEY").encode("utf-8")
-CIPHER = Fernet(COOKIE_ENCRYPTION_KEY)
+# secrets.token_urlsafe(32)
+COOKIE_ENCRYPTION_KEY = os.environ.get("COOKIE_ENCRYPTION_KEY", secrets.token_urlsafe(32))
 PORT = int(os.environ.get("PORT", "5173"))
 HOST = os.environ.get("HOST", "localhost")
 ENVIRONMENT = os.environ.get("ENVIRONMENT", "development")  # development, production
