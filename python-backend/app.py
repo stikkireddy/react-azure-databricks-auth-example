@@ -4,6 +4,7 @@ import httpx
 import uvicorn
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.oauth import OAuthClient, SessionCredentials, Consent
+from databricks.sdk.service.serving import ChatMessage, ChatMessageRole
 from fastapi import FastAPI, Request, Depends
 from pydantic import BaseModel
 from starlette import status
@@ -119,7 +120,15 @@ def get_workspace_client(request: Request) -> Optional[WorkspaceClient]:
 async def test_token(w: Optional[WorkspaceClient] = Depends(get_workspace_client)):
     if w is None:
         return JSONResponse(status_code=401, content={"error": "Invalid session"})
-    return w.current_user.me().as_dict()
+    return {
+        "me": w.current_user.me().as_dict(),
+        "knock_knock": w.serving_endpoints.query(
+            messages=[
+                ChatMessage(content="tell me a knock knock joke.",
+                            role=ChatMessageRole.USER)
+            ],
+            name="databricks-dbrx-instruct"),
+    }
 
 
 # make sure this route is last as its a catch all route to push to the node server rendering react app
