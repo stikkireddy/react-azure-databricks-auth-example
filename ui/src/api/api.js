@@ -1,19 +1,35 @@
+import startLogin from "../auth/auth.js";
+
 const BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL
 
+async function fetchWithAuth(url, options = {}) {
+    try {
+        const response = await fetch(url, options);
+
+        if (response.status === 401) {
+            // Handle 401 Unauthorized error by triggering the login flow
+            await startLogin();
+            return;
+        }
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+
+        return response.json();
+    } catch (error) {
+        console.error('Fetch error:', error);
+    }
+}
+
 export const getCurrentUser = async () => {
-    return await fetch(`${BASE_URL}/test`, {
+    return await fetchWithAuth(`${BASE_URL}/test`, {
         method: 'GET',
         headers: {
             'accept': 'application/json',
             'Content-Type': 'application/json'
         }
     })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            return response.json();
-        })
         .then(data => {
             return data
         })

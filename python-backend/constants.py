@@ -11,7 +11,6 @@ CLIENT_SECRET = os.environ.get("CLIENT_SECRET")
 REDIRECT_URI = os.environ.get("REDIRECT_URI")
 WORKSPACE_URL = os.environ.get("WORKSPACE_URL").rstrip("/")
 REACT_SERVICE_URL = os.environ.get("REACT_SERVICE_URL").rstrip("/")
-REFRESH_TOKEN_WITHIN_N_SECONDS = int(os.environ.get("REFRESH_TOKEN_WITHIN_N_SECONDS_BEFORE_EXPIRY", "300"))
 SCOPES = ["all-apis", "offline_access"]
 
 # use this in another file if you need to generate the key

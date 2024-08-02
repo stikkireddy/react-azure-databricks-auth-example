@@ -38,12 +38,7 @@ Make sure you use a proxy/etc to make sure that the backend and frontend are in 
 Cross origin cookies are only set with SameSite=None; Secure and the browser will block them if the domain is different. Not a good idea 
 if you dont need to do this.
 
-The app additionally has a background setInterval ref to validate the session every N seconds. It makes an api call POST /validate-session which 
-ships the cookies over and then the backend converts the cookie to a decoded jwt and sees if it can refresh the token. You can modify this to be in magnitude of minutes.
-To configure the React client to validate session every so often you can modify this in the React code. VITE_SESSION_VALIDATION_INTERVAL.
-
-To modify the backend on how many seconds before expire to refresh token you can modify the config in the .env file. 
-You can modify this on the Fastapi server: REFRESH_TOKEN_WITHIN_N_SECONDS.
+Full page refresh just revalidates the cookie and refreshes the session cookie.
 
 All cookies have expiry of 1 hr other than the oauth_challenge_cfg which is 60 seconds.
 

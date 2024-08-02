@@ -73,12 +73,19 @@ def token(
 ):
     from databricks.sdk.oauth import Consent
 
+    consent = request.session.get("consent")
+
     if error is not None:
         # something wrong happened with state or invalid oauth config
         request.session["consent"] = None
         return JSONResponse(status_code=401, content={"error": error, "error_description": error_description})
 
-    consent = Consent.from_dict(oauth_client, request.session.get("consent"))
+    if consent is None:
+        request.session["consent"] = None
+        return JSONResponse(status_code=401, content={"error": "Invalid consent go back to home and try again"})
+
+    consent = Consent.from_dict(oauth_client, consent)
+
     try:
         creds = consent.exchange(code, state)
     except Exception as e:
