@@ -13,7 +13,7 @@ async function fetchWithAuth(url, options = {}) {
         }
 
         if (!response.ok) {
-            throw new Error(`HTTP error! Status: ${response.status}`);
+            console.log(`HTTP error! Status: ${response.status}`);
         }
 
         return response.json();

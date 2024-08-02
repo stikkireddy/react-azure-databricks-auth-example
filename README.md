@@ -42,6 +42,9 @@ Full page refresh just revalidates the cookie and refreshes the session cookie.
 
 All cookies have expiry of 1 hr other than the oauth_challenge_cfg which is 60 seconds.
 
+In the front end code use the `fetchWithAuth` method which handles 401s from the backend and you can choose to redirect 
+to the login page or show a message to the user. You can use routers like tanstack router or react-router to handle this.
+
 ## How to run
 
 1. Clone the repo
