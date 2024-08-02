@@ -55,6 +55,26 @@ to the login page or show a message to the user. You can use routers like tansta
 6. Run `make run-backend` to start the backend
 7. Run `make run-ui` to start the UI
 
+## Required Environment Variables
+
+### Backend
+
+1. DATABRICKS_ACCOUNT_ID - This is the account id of the databricks workspace
+2. CLIENT_ID - This is the client id of the databricks app
+3. CLIENT_SECRET - This is the client secret of the databricks app
+4. REDIRECT_URI=http://localhost:5173/token - This is the redirect uri of the databricks app
+5. WORKSPACE_URL - This is the workspace url of the databricks workspace
+6. REACT_SERVICE_URL=http://localhost:5172 - This is the react app url for debugging purposes
+7. COOKIE_ENCRYPTION_KEY - This is the key used to encrypt the cookies
+8. PORT=5173 - This is the port the backend will run on
+9. HOST - This is the host the backend will run on
+10. ENVIRONMENT=development/production - This is the environment you can use this to change some flags
+11. COOKIE_MAX_AGE_SECONDS=3600 - This is the max age of the cookies (you can make this longer if you want to match your refresh token)
+
+### Frontend
+
+1. VITE_BACKEND_BASE_URL - This is the base url of the backend which is used to make requests to the backend
+
 ## Production
 
 You can build the React app and serve it with the python backend.
