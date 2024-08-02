@@ -99,13 +99,17 @@ def token(
 # THIS IS TOTALLY OPTIONAL AND NOT REQUIRED IF THE USER DOES NOTHING FOR 1 HR THEN JUST MAKE THEM GO THROUGH LOGIN FLOW AGAIN
 @app.post("/validate-session")
 def refresh(request: Request):
-    session_token = request.session.get("token")
-    if session_token is None:
+    try:
+        session_token = request.session.get("token")
+        if session_token is None:
+            return JSONResponse(status_code=401, content={"error": "Invalid session"})
+        creds = SessionCredentials.from_dict(oauth_client, session_token)
+        if creds.token().valid is False:
+            return JSONResponse(status_code=401, content={"error": "Invalid session"})
+        request.session["token"] = creds.as_dict()
+    except Exception:
         return JSONResponse(status_code=401, content={"error": "Invalid session"})
-    creds = SessionCredentials.from_dict(oauth_client, session_token)
-    if creds.token().valid is False:
-        return JSONResponse(status_code=401, content={"error": "Invalid session"})
-    request.session["token"] = creds.as_dict()
+    return
 
 
 def get_workspace_client(request: Request) -> Optional[WorkspaceClient]:
